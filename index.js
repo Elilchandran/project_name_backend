@@ -85,31 +85,33 @@ app.post('/register', async (req, res) => {
 });
 
 //Sign in
-app.post('/submitTask', async (req, res) => {
-  try {
-    const { email, taskName, description, status, completedOn, link } = req.body;
+app.post('/signin', async (req, res) => {
+  const { email, password } = req.body;
 
+  try {
     const user = await User.findOne({ email: email });
 
-    if (user) {
-      const newTask = await user.stasks.create({
-        taskName,
-        description,
-        status,
-        completedOn: completedOn ? new Date(completedOn) : null,
-        link,
-      });
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
 
-      await user.save();
+    const isPasswordValid = await bcrypt.compare(password, user.password);
 
-      res.status(200).json({ message: 'Task submitted successfully', task: newTask });
+    if (isPasswordValid) {
+      // Passwords match, user can be logged in
+      const tasks = user.stasks;
+      return res.status(200).json({ message: 'Sign-in successful', tasks });
     } else {
-      res.status(404).json({ message: 'User not found' });
+      return res.status(401).json({ message: 'Invalid email or password' });
     }
   } catch (error) {
-    res.status(500).json({ message: 'Error submitting task', error: error.message });
+    return res.status(500).json({ message: 'Error signing in', error: error.message });
   }
 });
+
+
+
+
 
 
 //Task
@@ -131,6 +133,7 @@ app.get('/users/tasks', async (req, res) => {
 });
 
 //Submit task
+
 app.post('/submitTask', async (req, res) => {
   try {
     const { email, taskName, description, status, completedOn, link } = req.body;
@@ -138,15 +141,14 @@ app.post('/submitTask', async (req, res) => {
     const user = await User.findOne({ email: email });
 
     if (user) {
-      const newTask = {
+      const newTask = await user.stasks.create({
         taskName,
         description,
         status,
         completedOn: completedOn ? new Date(completedOn) : null,
         link,
-      };
+      });
 
-      user.stasks.push(newTask);
       await user.save();
 
       res.status(200).json({ message: 'Task submitted successfully', task: newTask });
