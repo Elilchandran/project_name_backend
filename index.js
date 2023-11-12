@@ -1,5 +1,5 @@
 const express = require('express');
-//const bodyParser = require('body-parser');
+const bodyParser = require('body-parser');
 const bcrypt = require('bcrypt');
 const cors = require('cors'); 
 const mongoose = require('mongoose');
@@ -7,7 +7,7 @@ const mongoose = require('mongoose');
 const app = express();
 app.use(cors());
 app.use(express.json());
-//app.use(bodyParser.json());
+app.use(bodyParser.json());
 const port = 3001;
 
 
@@ -15,7 +15,8 @@ const url = 'mongodb+srv://elilarasi:elilarasi@cluster0.0ley2q5.mongodb.net/task
 
 mongoose.connect(url, {
   useNewUrlParser: true,
-  useUnifiedTopology: true
+  useUnifiedTopology: true,
+  useCreateIndex: true,
 }).then(() => {
   console.log('MongoDB connected');
 }).catch((err) => {
@@ -23,23 +24,25 @@ mongoose.connect(url, {
 });
 
 const taskSchema = new mongoose.Schema({
-  taskName: String,
-  description: String,
-  status: String,
-  completedOn: Date,
-  link: String,
-});
+  taskName: { type: String },
+  description: { type: String },
+  status: { type: String },
+  completedOn: { type: Date },
+  link: { type: String },
+}, { typeKey: '$type' });
 
 const userSchema = new mongoose.Schema({
-  name: String,
-  email: String,
-  password: String,
-  entries: Number,
-  stasks: [taskSchema],
-  joined: Date,
-});
+  name: { type: String },
+  email: { type: String },
+  password: { type: String },
+  entries: { type: Number },
+  stasks: { type: [taskSchema] },
+  joined: { type: Date },
+}, { typeKey: '$type' });
 
-const User = mongoose.model('User', userSchema, 'users_Tasks');
+
+const User = mongoose.model('User', userSchema);
+
 
 app.get('/user', (req, res) => {
   User.find({}, {})
@@ -82,29 +85,32 @@ app.post('/register', async (req, res) => {
 });
 
 //Sign in
-app.post('/signin', async (req, res) => {
-  const { email, password } = req.body;
-
+app.post('/submitTask', async (req, res) => {
   try {
+    const { email, taskName, description, status, completedOn, link } = req.body;
+
     const user = await User.findOne({ email: email });
 
-    if (!user) {
-      return res.status(404).json({ message: 'User not found' });
-    }
+    if (user) {
+      const newTask = await user.stasks.create({
+        taskName,
+        description,
+        status,
+        completedOn: completedOn ? new Date(completedOn) : null,
+        link,
+      });
 
-    const isPasswordValid = await bcrypt.compare(password, user.password);
+      await user.save();
 
-    if (isPasswordValid) {
-      // Passwords match, user can be logged in
-      const tasks = user.stasks;
-      return res.status(200).json({ message: 'Sign-in successful', tasks });
+      res.status(200).json({ message: 'Task submitted successfully', task: newTask });
     } else {
-      return res.status(401).json({ message: 'Invalid email or password' });
+      res.status(404).json({ message: 'User not found' });
     }
   } catch (error) {
-    return res.status(500).json({ message: 'Error signing in', error: error.message });
+    res.status(500).json({ message: 'Error submitting task', error: error.message });
   }
 });
+
 
 //Task
 app.get('/users/tasks', async (req, res) => {
