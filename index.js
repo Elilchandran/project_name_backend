@@ -15,8 +15,7 @@ const url = 'mongodb+srv://elilarasi:elilarasi@cluster0.0ley2q5.mongodb.net/task
 
 mongoose.connect(url, {
   useNewUrlParser: true,
-  useUnifiedTopology: true,
-  useCreateIndex: true,
+  useUnifiedTopology: true
 }).then(() => {
   console.log('MongoDB connected');
 }).catch((err) => {
@@ -24,25 +23,23 @@ mongoose.connect(url, {
 });
 
 const taskSchema = new mongoose.Schema({
-  taskName: { type: String },
-  description: { type: String },
-  status: { type: String },
-  completedOn: { type: Date },
-  link: { type: String },
-}, { typeKey: '$type' });
+  taskName: String,
+  description: String,
+  status: String,
+  completedOn: Date,
+  link: String,
+});
 
 const userSchema = new mongoose.Schema({
-  name: { type: String },
-  email: { type: String },
-  password: { type: String },
-  entries: { type: Number },
-  stasks: { type: [taskSchema] },
-  joined: { type: Date },
-}, { typeKey: '$type' });
+  name: String,
+  email: String,
+  password: String,
+  entries: Number,
+  stasks: [taskSchema],
+  joined: Date,
+});
 
-
-const User = mongoose.model('User', userSchema);
-
+const User = mongoose.model('User', userSchema, 'users_Tasks');
 
 app.get('/user', (req, res) => {
   User.find({}, {})
@@ -51,7 +48,8 @@ app.get('/user', (req, res) => {
     })
 });
 
-//register
+// Registration route
+// Registration route
 app.post('/register', async (req, res) => {
   const { name, email, password } = req.body;
 
@@ -62,29 +60,33 @@ app.post('/register', async (req, res) => {
       return res.status(400).json({ message: 'User already exists with this email' });
     }
 
-    bcrypt.hash(password, 10, async (err, hash) => {
-      if (err) {
-        return res.status(500).json({ error: 'Error hashing the password' });
-      }
+    // Hash the password
 
-      const newUser = new User({
-        name: name,
-        email: email,
-        password: hash,
-        entries: 0,
-        stasks: [],
-        joined: new Date(),
-      });
+    
+    const hash = await bcrypt.hash(password, 10);
 
-      await newUser.save();
-      return res.status(200).json({ message: 'Registered successfully' });
+    console.log('Hashed Password for Registration:', hash);
+
+    const newUser = new User({
+      name: name,
+      email: email,
+      password: hash, // Save the hashed password
+      entries: 0,
+      stasks: [],
+      joined: new Date(),
     });
+
+    await newUser.save();
+    return res.status(200).json({ message: 'Registered successfully' });
   } catch (error) {
     return res.status(500).json({ error: 'Error registering user', details: error.message });
   }
 });
 
-//Sign in
+
+
+// Sign in route
+// Sign in route
 app.post('/signin', async (req, res) => {
   const { email, password } = req.body;
 
@@ -92,24 +94,31 @@ app.post('/signin', async (req, res) => {
     const user = await User.findOne({ email: email });
 
     if (!user) {
+      console.log('User not found');
       return res.status(404).json({ message: 'User not found' });
     }
 
-    const isPasswordValid = await bcrypt.compare(password, user.password);
+    console.log('Entered Password:', password);
+    console.log('Hashed Password from Database:', user.password);
+
+    //const isPasswordValid = await bcrypt.compare(password, user.password);
+    const isPasswordValid = bcrypt.compareSync(password, user.password);
+
 
     if (isPasswordValid) {
       // Passwords match, user can be logged in
+      console.log('Sign-in successful');
       const tasks = user.stasks;
       return res.status(200).json({ message: 'Sign-in successful', tasks });
     } else {
+      console.log('Invalid email or password');
       return res.status(401).json({ message: 'Invalid email or password' });
     }
   } catch (error) {
+    console.error('Error signing in:', error);
     return res.status(500).json({ message: 'Error signing in', error: error.message });
   }
 });
-
-
 
 
 
@@ -133,7 +142,6 @@ app.get('/users/tasks', async (req, res) => {
 });
 
 //Submit task
-
 app.post('/submitTask', async (req, res) => {
   try {
     const { email, taskName, description, status, completedOn, link } = req.body;
@@ -141,14 +149,15 @@ app.post('/submitTask', async (req, res) => {
     const user = await User.findOne({ email: email });
 
     if (user) {
-      const newTask = await user.stasks.create({
+      const newTask = {
         taskName,
         description,
         status,
         completedOn: completedOn ? new Date(completedOn) : null,
         link,
-      });
+      };
 
+      user.stasks.push(newTask);
       await user.save();
 
       res.status(200).json({ message: 'Task submitted successfully', task: newTask });
