@@ -49,7 +49,6 @@ app.get('/user', (req, res) => {
 });
 
 // Registration route
-// Registration route
 app.post('/register', async (req, res) => {
   const { name, email, password } = req.body;
 
@@ -59,10 +58,6 @@ app.post('/register', async (req, res) => {
     if (existingUser) {
       return res.status(400).json({ message: 'User already exists with this email' });
     }
-
-    // Hash the password
-
-    
     const hash = await bcrypt.hash(password, 10);
 
     console.log('Hashed Password for Registration:', hash);
@@ -84,8 +79,6 @@ app.post('/register', async (req, res) => {
 });
 
 
-
-// Sign in route
 // Sign in route
 app.post('/signin', async (req, res) => {
   const { email, password } = req.body;
@@ -121,9 +114,7 @@ app.post('/signin', async (req, res) => {
 });
 
 
-
-
-//Task
+// Task in route
 app.get('/users/tasks', async (req, res) => {
   const userEmail = req.query.email;
 
